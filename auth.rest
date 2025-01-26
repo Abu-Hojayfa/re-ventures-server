@@ -1,0 +1,28 @@
+# POST http://localhost:8080/singin
+# Content-Type: application/json
+
+# {
+#   "email": "john.doe@eample.com",
+#   "password": "securepassword"
+# }
+
+POST http://localhost:8080/signin
+Content-Type: application/json
+
+{
+  "email": "",
+  "password": "securepassword"
+}
+
+###
+
+POST http://localhost:8080/signin
+Content-Type: application/json
+
+{
+  "email": "john.doe@eample.com",
+  "password": "securepassword"
+}
+
+###
+GET http://localhost:8080/user/getAllUsers
