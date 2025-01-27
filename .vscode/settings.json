@@ -9,11 +9,11 @@
             "server": "localhost",
             "port": 3306,
             "driver": "MySQL",
-            "name": "hope so last",
+            "name": "laaaast",
             "database": "xyz",
             "username": "root",
             "password": "1234",
-            "connectionTimeout": 20
+            "connectionTimeout": 10
         }
     ]
 }

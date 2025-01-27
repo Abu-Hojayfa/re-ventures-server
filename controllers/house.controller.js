@@ -142,35 +142,7 @@ const findAllHouses = async (req, res) => {
 };
 
 // Fetch house and all related details
-const getPropertyDetails = async (req, res) => {
-  const { house_id } = req.params;
-  try {
-    const sql = `
-      SELECT 
-        h.*,
-        hd.type, hd.status, hd.property_area, hd.bedrooms, hd.bathrooms, hd.rooms, 
-        hd.year_build, hd.neighborhood, hd.latitude, hd.longitude, hd.label, 
-        hd.land_area, hd.garage_size,
-        a.air_condition, a.cable_tv, a.elevator, a.wifi, a.pet_friendly, a.furnished, 
-        a.garden, a.swimming_pool, a.intercom, a.disabled_access, a.fireplace, 
-        a.garage, a.heating, a.security, a.parking,
-        p.price, p.before_price_label, p.after_price_label
-      FROM 
-        houses h
-      LEFT JOIN 
-        house_details hd ON h.house_id = hd.house_id
-      LEFT JOIN 
-        amenities a ON h.house_id = a.house_id
-      LEFT JOIN 
-        prices p ON h.house_id = p.house_id
-    `;
-    const [results] = await pool.query(sql);
-    res.status(200).json(results);
-  } catch (error) {
-    console.error('Error fetching house details:', error.message);
-    res.status(500).json({ message: 'Failed to fetch house and related details.' });
-  }
-};
+
 
 const getPropertyDetailsById = async (req, res) => {
   const { house_id } = req.params; // Extract house_id from request parameters
@@ -210,6 +182,107 @@ const getPropertyDetailsById = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch property details.' });
   }
 };
+
+const getPropertyDetails = async (req, res) => {
+  try {
+    // Query each table separately for all properties
+    const houseQuery = `SELECT * FROM houses`;
+    const houseDetailsQuery = `SELECT * FROM house_details`;
+    const pricesQuery = `SELECT * FROM prices`;
+    const imagesQuery = `SELECT * FROM images`;
+    const usersQuery = `SELECT * FROM users`; // Query for user info (owner)
+
+    // Execute all the queries in parallel
+    const [houseResults] = await pool.query(houseQuery);
+    const [houseDetailsResults] = await pool.query(houseDetailsQuery);
+    const [pricesResults] = await pool.query(pricesQuery);
+    const [imageResults] = await pool.query(imagesQuery);
+    const [userResults] = await pool.query(usersQuery); // Fetch users
+
+    // Check if any results are found
+    if (houseResults.length === 0) {
+      return res.status(404).json({ message: 'No properties found.' });
+    }
+
+    // Construct the response JSON combining all tables data
+    const response = houseResults.map((house) => {
+      const houseDetails = houseDetailsResults.find((detail) => detail.house_id === house.house_id) || null;
+      const price = pricesResults.find((price) => price.house_id === house.house_id) || null;
+      const image = imageResults.find((image) => image.house_id === house.house_id) || null; // Only one image
+      const user = userResults.find((user) => user.user_id === house.user_id) || null; // Get user info (owner)
+
+      return {
+        house,
+        house_details: houseDetails,
+        prices: price,
+        image, // Only one image (first found)
+        user,  // User (property owner)
+      };
+    });
+
+    res.status(200).json(response); // Send the combined response for all houses
+  } catch (error) {
+    console.error('Error fetching property details:', error.message);
+    res.status(500).json({ message: 'Failed to fetch property details.' });
+  }
+};
+
+const getPropertyDetailsByType = async (req, res) => {
+  const { type } = req.params; // Type is extracted as a string
+
+  try {
+    // First, get the house details based on type
+    const houseDetailsQuery = `SELECT * FROM house_details WHERE type = ?`;
+    const [houseDetailsResults] = await pool.query(houseDetailsQuery, [type]);
+
+    if (houseDetailsResults.length === 0) {
+      return res.status(404).json({ message: `No properties found for type "${type}".` });
+    }
+
+    // Extract house_ids from house_details
+    const houseIds = houseDetailsResults.map((detail) => detail.house_id);
+
+    // Query for houses
+    const houseQuery = `SELECT * FROM houses WHERE house_id IN (?)`;
+    const [houseResults] = await pool.query(houseQuery, [houseIds]);
+
+    // Query for prices
+    const pricesQuery = `SELECT * FROM prices WHERE house_id IN (?)`;
+    const [pricesResults] = await pool.query(pricesQuery, [houseIds]);
+
+    // Query for images
+    const imagesQuery = `SELECT * FROM images WHERE house_id IN (?)`;
+    const [imagesResults] = await pool.query(imagesQuery, [houseIds]);
+
+    // Query for users (who owns these houses)
+    const userQuery = `SELECT * FROM users WHERE user_id IN (SELECT DISTINCT user_id FROM houses WHERE house_id IN (?))`;
+    const [userResults] = await pool.query(userQuery, [houseIds]);
+
+    // Construct the JSON response
+    const response = houseDetailsResults.map((houseDetail) => {
+      const house = houseResults.find((h) => h.house_id === houseDetail.house_id);
+      const price = pricesResults.find((p) => p.house_id === houseDetail.house_id);
+      const image = imagesResults.find((i) => i.house_id === houseDetail.house_id);
+      const user = userResults.find((u) => u.user_id === house.user_id);
+
+      return {
+        house: house || null,
+        house_details: houseDetail || null,
+        prices: price || null,
+        images: image || null,
+        user: user || null,
+      };
+    });
+
+    res.status(200).json(response); // Send the combined response
+  } catch (error) {
+    console.error('Error fetching property details:', error.message);
+    res.status(500).json({ message: 'Failed to fetch property details.' });
+  }
+};
+
+
+
 
 
 
@@ -277,5 +350,6 @@ module.exports = {
   updateHouseById,
   deleteHouse,
   findHousesByOwner,
-  getPropertyDetailsById
+  getPropertyDetailsById,
+  getPropertyDetailsByType
 };
