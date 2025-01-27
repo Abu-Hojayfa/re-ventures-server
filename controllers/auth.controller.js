@@ -18,7 +18,7 @@ const userExists = async (email) => {
 
 const signUp = async (req, res) => {
   try {
-    const { email, name, password} = req.body;
+    const { email, first_name,last_name, password} = req.body;
 
     // Check if the user already exists
     const exists = await userExists(email);
@@ -30,8 +30,8 @@ const signUp = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert the new user into the database
-    const sql = `INSERT INTO users (email, name, password ) VALUES (?, ?, ?)`;
-    await pool.query(sql, [email, name, hashedPassword]);
+    const sql = `INSERT INTO users (email, first_name,last_name, password ) VALUES (?, ?, ?, ?)`;
+    await pool.query(sql, [email, first_name,last_name, hashedPassword]);
 
     res.status(200).send('User added successfully.');
   } catch (err) {

@@ -1,1 +1,1 @@
-SELECT * FROM images
+SELECT * FROM users;
